@@ -1243,59 +1243,6 @@ function qcore_input {
    fi
 }
 
-###############################################
-########ORCA_stuffs############################
-
-################################################
-function check_orca {
-   if [ ! -z $SLURM_JOB_ID ] && [ ! -z $SLURM_NTASKS ]; then
-      t=$(srun -N 1 -n 1 orca ${sharedir}/orca_test.inp | awk 'BEGIN{t=0};/ORCA TERMINATED NORMALLY/{t=1};END{print t}')
-   else
-      if ! command -v orca &> /dev/null
-      then
-         echo ""
-         echo "orca does not seem to be installed"
-         echo "Aborting..."
-         exit
-      fi
-      t=$(orca ${sharedir}/orca_test.inp | awk 'BEGIN{t=0};/ORCA TERMINATED NORMALLY/{t=1};END{print t}')
-   fi
-
-   if [ $t -eq 0 ]; then
-      echo "Please check that ORCA is installed in your computer and it can be invoked as orca"
-      exit 1
-   fi
-}
-
-################################################
-function orca_input {
-   if [ "$level" = "ll" ]; then
-      levelc=$method_opt
-   elif [ "$level" = "hl" ]; then
-      levelc=$level1
-   fi
-
-   nprocs=${SLURM_CPUS_PER_TASK:-1}
-
-   if [ "$calc" = "ts" ]; then
-      cal="! $levelc OptTS NumFreq
-%pal nprocs $nprocs end
-%geom
-  Calc_Hess true
-  NumHess true
-end"
-   elif [ "$calc" = "min" ]; then
-      cal="! $levelc Opt NumFreq
-%pal nprocs $nprocs end"
-   fi
-
-   inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
-}
-
-
-#############END###############################
-###############################################
-
 
 function check_g09 {
 if [ "program_hl" = "g09" ]; then
