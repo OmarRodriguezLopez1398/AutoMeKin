@@ -1291,18 +1291,29 @@ function orca_input {
       levelc=$level1
    fi
 
+   # Convertir sintaxis Gaussian (CCSD(T)/cc-pVTZ) a sintaxis ORCA (CCSD(T) cc-pVTZ)
+   levelc_orca="$(echo "$levelc" | sed 's@/@ @g')"
+
    nprocs=${SLURM_CPUS_PER_TASK:-1}
 
    if [ "$calc" = "ts" ]; then
-      cal="! $levelc OptTS NumFreq
+      cal="! $levelc_orca OptTS NumFreq
 %pal nprocs $nprocs end
 %geom
   Calc_Hess true
   NumHess true
 end"
    elif [ "$calc" = "min" ]; then
-      cal="! $levelc Opt NumFreq
+      cal="! $levelc_orca Opt NumFreq
 %pal nprocs $nprocs end"
+   elif [ "$calc" = "irc" ]; then
+      cal="! $levelc_orca IRC
+%pal nprocs $nprocs end
+%irc
+  MaxIter $IRCpoints
+  Direction both
+  PrintLevel 1
+end"
    fi
 
    inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
