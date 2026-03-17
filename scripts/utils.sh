@@ -351,20 +351,36 @@ function read_input {
          echo HighLevel keyword has not been defined
          exit 1
       fi
-   elif [ "$program_hl" = "qcore" ]; then
-      HLstring0="qcore_template"
+   ##############cambiando_esto##########################   
+   #elif [ "$program_hl" = "qcore" ]; then
+   #   HLstring0="qcore_template"
+   #elif [ "$program_hl" = "g09" ]; then
+   #   HLstring0="$(awk '{if($1=="HighLevel") print $3}' $inputfile)"
+   #elif [ "$program_hl" = "g16" ]; then
+   #   HLstring0="$(awk '{if($1=="HighLevel") print $3}' $inputfile)"
+   #else
+   #   echo HighLevel value is $program_hl , and it should be qcore ,g09 or g16
+   #   exit 1
+   #fi
+   ###################por_esto###########################
    elif [ "$program_hl" = "g09" ]; then
       HLstring0="$(awk '{if($1=="HighLevel") print $3}' $inputfile)"
    elif [ "$program_hl" = "g16" ]; then
       HLstring0="$(awk '{if($1=="HighLevel") print $3}' $inputfile)"
+   elif [ "$program_hl" = "orca" ]; then
+      HLstring0="$(awk '{if($1=="HighLevel") print $3}' $inputfile)"
    else
-      echo HighLevel value is $program_hl , and it should be qcore ,g09 or g16
+      echo HighLevel value is $program_hl , and it should be qcore, g09, g16 or orca
       exit 1
    fi
+   #######################################################
    HLstring="$(echo "$HLstring0" | sed 's@//@ @')"
    reduce=$(awk 'BEGIN{red=-1};{if($1=="HL_rxn_network") {if($2=="complete") red=0;if($2=="reduced" && NF==3) red=$3}};END{print red}' $inputfile)
    noHLcalc=$(echo $HLstring | awk 'BEGIN{nc=0};{nc=NF};END{print nc}')
-   IRCpoints=$(awk 'BEGIN{if("'$program_hl'"~/g[01][96]/)np=100;if("'$program_hl'"=="qcore")np=500};{if($1=="IRCpoints") np=$2};END{print np}' $inputfile)
+   ###########cambiando_esto#####################
+   #IRCpoints=$(awk 'BEGIN{if("'$program_hl'"~/g[01][96]/)np=100;if("'$program_hl'"=="qcore")np=500};{if($1=="IRCpoints") np=$2};END{print np}' $inputfile)
+   #######################por_esto####################
+   IRCpoints=$(awk 'BEGIN{if("'$program_hl'"~/g[01][96]/)np=100;if("'$program_hl'"=="qcore")np=500;if("'$program_hl'"=="orca")np=20};{if($1=="IRCpoints") np=$2};END{print np}' $inputfile)
    iop=$(awk '{if($1=="iop") {$1="";print $0}}' $inputfile)
    mem=$(awk 'BEGIN{mem=1};{if($1=="Memory") mem=$2};END{print mem}' $inputfile)
    pseudo=$(awk '{if($1=="pseudo") print "pseudo=read" }' $inputfile)
