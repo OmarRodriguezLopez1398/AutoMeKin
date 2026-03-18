@@ -89,7 +89,7 @@ do
     echo $name "has been removed because of previous repetitions or it does not exist"
     continue
   fi
-done
+done 
 #statistics
 stats_hl_tss
 
@@ -105,16 +105,18 @@ do
   en_ts=$(sqlite3 ${tsdirhl}/TSs/tshl.db "select energy,zpe from tshl where name='$i'" | sed 's@|@ @g' | awk '{printf "%20.10f\n",$1*627.51+$2}')
   deltg="$(echo "$en_min0" "$en_ts" | awk '{printf "%20.10f\n",$2-$1}')"
   res=$(echo "$deltg < $maxen" | bc )
-  #if irc output is not complete, remove it
+  # if irc output is not complete, remove it
   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
     if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
       if [ $(awk 'BEGIN{c=0};/Job /{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
       if [ $(awk 'BEGIN{c=0};/Job /{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
     fi
   elif [ "$program_hl" = "orca" ]; then
-    if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
-      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
-      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
+    # ORCA does both directions in a single job, output is irc_${i}.log
+    if [ -f ${tsdirhl}/IRC/irc_${i}.log ]; then
+      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/irc_${i}.log) -eq 0 ]; then
+        rm -rf ${tsdirhl}/IRC/irc_${i}.*
+      fi
     fi
   fi
   if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
@@ -122,7 +124,7 @@ do
   elif [ -f ${tsdirhl}/IRC/irc_${i}.log ]; then
     echo "IRC completed for $i"
   elif [ $res -eq 0 ]; then
-    echo "The energy of TS $i is: $deltg, which is greater than the threshold: $maxen" 
+    echo "The energy of TS $i is: $deltg, which is greater than the threshold: $maxen"
     sqlite3 "" "attach '${tsdirhl}/TSs/tshl.db' as tshl; attach '${tsdirhl}/TSs/tshlhe.db' as tshlhe;
     insert into tshlhe (natom,name,energy,zpe,g,geom,freq,number) select natom,name,energy,zpe,g,geom,freq,number from tshl where name='$i';delete from tshl where name='$i';"
   else
@@ -130,21 +132,25 @@ do
     echo "Submit IRC calc for" $i
     calc=irc
     level=hl
-    # For ORCA: read TS geometry from the optimized TS log
-    if [ "$program_hl" = "orca" ]; then
-       geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
-    fi
     if [ "$program_hl" = "g16" ]; then
        g09_input
+       echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+       echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     elif [ "$program_hl" = "orca" ]; then
+       # ORCA: read TS geometry from optimized TS log
+       geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
        orca_input
+       # ORCA does both directions in one job, store as irc_$i
+       echo -e "insert or ignore into gaussian values (NULL,'irc_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     else
        ${program_hl}_input
+       echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+       echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     fi
-  fi 
+  fi
 done
-##Perform m parallel calculations
-#echo Performing a total of $m irc calculations
-#if [ $m -gt 0 ]; then
-#   doparallel "runIRC.sh {1} $tsdirhl $program_hl" "$(seq $m)"
-#fi
+# Perform m parallel calculations
+echo Performing a total of $m irc calculations
+if [ $m -gt 0 ]; then
+   doparallel "runIRC.sh {1} $tsdirhl $program_hl" "$(seq $m)"
+fi
