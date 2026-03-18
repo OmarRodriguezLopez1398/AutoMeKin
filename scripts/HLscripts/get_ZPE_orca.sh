@@ -1,3 +1,4 @@
 #!/bin/bash
-# ZPE en kcal/mol (igual que Gaussian)
-awk '/Zero point energy/{printf "%14.9f\n",$NF*627.5095}' $1
+# ZPE in kcal/mol from ORCA output
+# Line format: "Zero point energy                ...      0.03711484 Eh      23.29 kcal/mol"
+awk '/Zero point energy/{print $(NF-1)}' $1
