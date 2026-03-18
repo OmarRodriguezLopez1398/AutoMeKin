@@ -105,7 +105,7 @@ do
   en_ts=$(sqlite3 ${tsdirhl}/TSs/tshl.db "select energy,zpe from tshl where name='$i'" | sed 's@|@ @g' | awk '{printf "%20.10f\n",$1*627.51+$2}')
   deltg="$(echo "$en_min0" "$en_ts" | awk '{printf "%20.10f\n",$2-$1}')"
   res=$(echo "$deltg < $maxen" | bc )
-  # if irc output is not complete, remove it
+# if irc output is not complete, remove it
   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
     if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
       if [ $(awk 'BEGIN{c=0};/Job /{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
@@ -116,6 +116,7 @@ do
       if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
       if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
     fi
+  fi
   if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
     echo "IRC completed for $i"
   elif [ -f ${tsdirhl}/IRC/irc_${i}.log ]; then
