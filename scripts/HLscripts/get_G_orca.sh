@@ -1,4 +1,3 @@
 #!/bin/bash
-# Final Gibbs free energy in Hartree from ORCA output
-# Line format: "Final Gibbs free energy         ...   -186.14961271 Eh"
-awk '/Final Gibbs free energy/{print $(NF-1)}' $1
+# Final Gibbs free energy in Hartree from ORCA output - takes LAST instance
+awk '/Final Gibbs free energy/{g=$(NF-1)} END{print g}' $1
