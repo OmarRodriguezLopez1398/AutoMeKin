@@ -1282,7 +1282,8 @@ function check_orca {
       exit 1
    fi
 }
-
+################################################
+################################################
 ################################################
 function orca_input {
    if [ "$level" = "ll" ]; then
@@ -1303,7 +1304,7 @@ function orca_input {
   Calc_Hess true
   NumHess true
 end"
-   elif [ "$calc" = "min" ]; then
+   elif [ "$calc" = "min" ] || [ "$calc" = "min_irc" ]; then
       cal="! $levelc_orca Opt NumFreq
 %pal nprocs $nprocs end"
    elif [ "$calc" = "irc" ]; then
@@ -1318,8 +1319,6 @@ end"
 
    inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 }
-
-
 #############END###############################
 ###############################################
 
@@ -1654,11 +1653,35 @@ fi
 if [ $ok -eq 0 ] && [ $name = "min0" ]; then ok=1 ; fi
 }
 
+#function check_min {
+#if [ -f $tsdirhl/IRC/minf_$i.log ] && [ -f $tsdirhl/IRC/minr_$i.log ]; then
+#   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+#      calc1=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
+#      calc2=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
+#   elif [ "$program_hl" = "qcore" ]; then
+#      calc1=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minf_$i.log)
+#      calc2=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minr_$i.log)
+#   fi
+#   if [ $calc1 -eq 0 ] && [ $calc2 -eq 0 ]; then
+#      calc=0
+#   else
+#      calc=1
+#   fi
+#else
+#   calc=1
+#fi
+#}
+#################################################
+###########New_check_min_funct###################
+#################################################
 function check_min {
 if [ -f $tsdirhl/IRC/minf_$i.log ] && [ -f $tsdirhl/IRC/minr_$i.log ]; then
    if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
       calc1=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
       calc2=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
+   elif [ "$program_hl" = "orca" ]; then
+      calc1=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/Error/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
+      calc2=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/Error/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
    elif [ "$program_hl" = "qcore" ]; then
       calc1=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minf_$i.log)
       calc2=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minr_$i.log)
@@ -1672,7 +1695,36 @@ else
    calc=1
 fi
 }
-
+#################################################
+#################################################
+#function get_geom_irc {
+#chkfilef=ircf_$i
+#chkfiler=ircr_$i
+#if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+#   frm1=$(awk 'BEGIN{npt=0};/Pt /{npt=$2};END{print npt}' $tsdirhl/IRC/ircf_$i.log )
+#   frm2=$(awk 'BEGIN{npt=0};/Pt /{npt=$2};END{print npt}' $tsdirhl/IRC/ircr_$i.log )
+#   if [ $frm1 -le 2 ] || [ $frm2 -le 2 ]; then
+#      mode=1
+#   else
+#      mode=2
+#   fi
+#   if [ $mode -eq 1 ]; then
+#      get_NM_g09.sh $tsdirhl/$i.log  1 > tmp_geomf_$i
+#      get_NM_g09.sh $tsdirhl/$i.log -1 > tmp_geomr_$i
+#   else
+#      get_geom_irc_g09.sh $tsdirhl/IRC/ircf_$i.log > tmp_geomf_$i
+#      get_geom_irc_g09.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
+#   fi
+#elif [ "$program_hl" = "qcore" ]; then
+#   awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_forward_last.xyz > tmp_geomf_$i
+#   awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_reverse_last.xyz > tmp_geomr_$i
+#fi
+#geof="$(cat tmp_geomf_$i)"
+#geor="$(cat tmp_geomr_$i)"
+#}
+##################################################
+##############New_get_geom_irc_funct##############
+##################################################
 function get_geom_irc {
 chkfilef=ircf_$i
 chkfiler=ircr_$i
@@ -1691,6 +1743,17 @@ if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
       get_geom_irc_g09.sh $tsdirhl/IRC/ircf_$i.log > tmp_geomf_$i
       get_geom_irc_g09.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
    fi
+elif [ "$program_hl" = "orca" ]; then
+   frm1=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircf_$i.log)
+   frm2=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircr_$i.log)
+   if [ "${frm1:-0}" -le 2 ] || [ "${frm2:-0}" -le 2 ]; then
+      # IRC too short: displace along imaginary mode from TS
+      get_NM_orca.sh $tsdirhl/$i.log  1 > tmp_geomf_$i
+      get_NM_orca.sh $tsdirhl/$i.log -1 > tmp_geomr_$i
+   else
+      get_geom_irc_orca.sh $tsdirhl/IRC/ircf_$i.log > tmp_geomf_$i
+      get_geom_irc_orca.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
+   fi
 elif [ "$program_hl" = "qcore" ]; then
    awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_forward_last.xyz > tmp_geomf_$i
    awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_reverse_last.xyz > tmp_geomr_$i
@@ -1698,7 +1761,8 @@ fi
 geof="$(cat tmp_geomf_$i)"
 geor="$(cat tmp_geomr_$i)"
 }
-
+##################################################
+##################################################
 function launch_mopac_TS {
    if [ $int_flag -eq 0 ]; then
       echo "$ts_template"                                 > ${name_TS_inp} 
