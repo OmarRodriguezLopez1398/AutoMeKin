@@ -129,6 +129,11 @@ do
     ((m=m+1))
     echo "Submit IRC calc for" $i
     calc=irc
+    level=hl
+    # For ORCA: read TS geometry from the optimized TS log
+    if [ "$program_hl" = "orca" ]; then
+       geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
+    fi
     if [ "$program_hl" = "g16" ]; then
        g09_input
     elif [ "$program_hl" = "orca" ]; then
@@ -138,8 +143,8 @@ do
     fi
   fi 
 done
-#Perform m parallel calculations
-echo Performing a total of $m irc calculations
-if [ $m -gt 0 ]; then
-   doparallel "runIRC.sh {1} $tsdirhl $program_hl" "$(seq $m)"
-fi
+##Perform m parallel calculations
+#echo Performing a total of $m irc calculations
+#if [ $m -gt 0 ]; then
+#   doparallel "runIRC.sh {1} $tsdirhl $program_hl" "$(seq $m)"
+#fi
