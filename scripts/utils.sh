@@ -1364,6 +1364,26 @@ elif [ "program_hl" = "g16" ]; then
 fi
 }
 
+#function get_data_hl_output {
+#if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
+#   energy=$(get_energy_g09_$HLcalc.sh $tsdirhl/${name}.log $noHLcalc)
+#   zpe=$(get_ZPE_g09.sh $tsdirhl/${name}.log)
+#   g=$(get_G_g09.sh $tsdirhl/${name}.log)
+#   geom="$(get_geom_g09.sh $tsdirhl/${name}.log)"
+#   freq="$(get_freq_g09.sh $tsdirhl/${name}.log)"
+#   sigma=$(awk 'BEGIN{IGNORECASE=1};/SYMMETRY NUMBER/{print $NF;exit}' $tsdirhl/${name}.log | sed 's@\.@@' )
+#elif [ "$program_hl" = "qcore" ];then
+#   energy=$(awk 'NR==1{print $2}' $tsdirhl/${name}.log)
+#   zpe=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $tsdirhl/${name}.log)
+#   g=$(awk '/Gibbs free energy/{print $4}' $tsdirhl/${name}.log)
+#   geom="$(awk 'NR>2{print $0}' $tsdirhl/${name}_opt.xyz)"
+#   freq="$(awk '/Freq/{for(i=1;i<=1000;i++) {getline;if(NF>1) exit;print $1}}' $tsdirhl/${name}.log)"
+#   sigma=1
+#fi
+#}
+################################################################
+##################Nueva_funcion_get_data_hl_output##############
+################################################################
 function get_data_hl_output {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
    energy=$(get_energy_g09_$HLcalc.sh $tsdirhl/${name}.log $noHLcalc)
@@ -1372,6 +1392,13 @@ if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
    geom="$(get_geom_g09.sh $tsdirhl/${name}.log)"
    freq="$(get_freq_g09.sh $tsdirhl/${name}.log)"
    sigma=$(awk 'BEGIN{IGNORECASE=1};/SYMMETRY NUMBER/{print $NF;exit}' $tsdirhl/${name}.log | sed 's@\.@@' )
+elif [ "$program_hl" = "orca" ];then
+   energy=$(get_energy_orca_$HLcalc.sh $tsdirhl/${name}.log $noHLcalc)
+   zpe=$(get_ZPE_orca.sh $tsdirhl/${name}.log)
+   g=$(get_G_orca.sh $tsdirhl/${name}.log)
+   geom="$(get_geom_orca.sh $tsdirhl/${name}.log)"
+   freq="$(get_freq_orca.sh $tsdirhl/${name}.log)"
+   sigma=$(get_sigma_orca.sh $tsdirhl/${name}.log)
 elif [ "$program_hl" = "qcore" ];then
    energy=$(awk 'NR==1{print $2}' $tsdirhl/${name}.log)
    zpe=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $tsdirhl/${name}.log)
@@ -1381,6 +1408,9 @@ elif [ "$program_hl" = "qcore" ];then
    sigma=1
 fi
 }
+################################################################
+################################################################
+
 
 function get_data_hl_output_mins {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ] ;then

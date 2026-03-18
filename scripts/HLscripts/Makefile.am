@@ -5,7 +5,10 @@ dist_bin_SCRIPTS=get_energy_g09_CCSDT.sh \
 	    get_energy_g09_DFT.sh get_energy_g09_HF.sh \
 	    get_energy_g09_MP2.sh get_freq_g09.sh \
 	    get_geom_g09.sh  get_geom_irc_g09.sh \
-		get_geom_orca.sh \
+		get_geom_orca.sh get_energy_orca_CCSDT.sh \
+		get_energy_orca_DFT.sh get_energy_orca_HF.sh \
+		get_energy_orca_MP2.sh get_ZPE_orca.sh \
+		get_G_orca.sh get_freq_orca.sh get_sigma_orca.sh \
 	    get_G_g09.sh get_minfminr_g09.sh get_NM_g09.sh \
 	    get_ZPE_g09.sh IDENTIFYPROD.sh IRC_ANALYSIS.sh \
 	    IRC.sh KMC.sh linked_paths.sh makerxyz.sh MIN.sh \

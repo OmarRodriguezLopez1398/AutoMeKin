@@ -1,230 +1,38 @@
-Funciones del utils.sh
+get_energy_g09_CCSDT.sh: 
+file=$1
+nc=$2
+awk '/sp ca/{++fl};/CCSD\(T/{if(fl=='$nc'-1) {print $2;exit}}' $file |  sed 's/D/ /g'  | awk '{printf "%14.9f\n",$1*10^$2} '
+
+get_energy_g09_DFT.sh:
+file=$1
+nc=$2
+awk '/sp ca/{++fl};/SCF Done/{if(fl=='$nc'-1) e=$5};END{print e}' $file 
+
+get_energy_g09_HF.sh:
+file=$1
+nc=$2
+awk '/sp ca/{++fl};/SCF Done/{if(fl=='$nc'-1 && $3 ~ /HF/) e=$5};END{print e}' $file 
 
 
-function check_g09 {
-if [ "program_hl" = "g09" ]; then
-   if [ ! -z $SLURM_JOB_ID ] && [ ! -z $SLURM_NTASKS ]; then
-     t=$(srun -N 1 -n 1 g09<${sharedir}/g09_test.dat | awk 'BEGIN{t=0};/Normal ter/{t=1};END{print t}')
-   else
-     if ! command -v g09 &> /dev/null
-     then
-       echo ""
-       echo "g09 does not seem to be installed"
-       echo "Aborting..."
-       exit
-     fi
-     t=$(g09<${sharedir}/g09_test.dat | awk 'BEGIN{t=0};/Normal ter/{t=1};END{print t}')
-   fi
+get_energy_g09_MP2.sh:
+file=$1
+nc=$2
+awk '/sp ca/{++fl};/MP2/{if(fl=='$nc'-1 && NF==6) e=$NF};END{print e}' $file | sed 's/D/ /g' | awk '{printf "%14.9f\n",$1*10^$2} '
 
-   if [ $t -eq 0 ]; then
-      echo "Please check that gaussian09 is installed in your computer and it can be invoked as g09"
-      exit 1
-   fi
-elif [ "program_hl" = "g16" ]; then
-   if [ ! -z $SLURM_JOB_ID ] && [ ! -z $SLURM_NTASKS ]; then
-     t=$(srun -N 1 -n 1 g16<${sharedir}/g09_test.dat | awk 'BEGIN{t=0};/Normal ter/{t=1};END{print t}')
-   else
-     if ! command -v g16 &> /dev/null
-     then
-       echo ""
-       echo "g16 does not seem to be installed"
-       echo "Aborting..."
-       exit
-     fi
-     t=$(g16<${sharedir}/g16_test.dat | awk 'BEGIN{t=0};/Normal ter/{t=1};END{print t}')
-   fi
+get_ZPE_g09.sh:
+awk '/Zero-point vibrational energy/{getline;print $1;exit}' $1
 
-   if [ $t -eq 0 ]; then
-      echo "Please check that gaussian16 is installed in your computer and it can be invoked as g16"
-      exit 1
-   fi
-fi
-}
+get_G_g09.sh:
+awk '/Thermal correction to Gibbs Free Energy/{print $7;exit}' $1
 
-
-
-
-################################################
-function g09_input {
-   chk="$(echo %chk=$chkfile)"
-   chkfilef=ircf_$i
-   chkfiler=ircr_$i
-   chkf="$(echo %chk=$chkfilef)"
-   chkr="$(echo %chk=$chkfiler)"
-   if [ "$level" = "ll" ] ; then
-      levelc=$method_opt
-   elif [ "$level" = "hl" ] ; then
-      levelc=$level1
-   fi
-   if [ "$calc" = "ts" ] ; then
-      cal="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/tkmc/'$temperature'/;s@calcall,noraman)@calcfc,noraman) freq=noraman@;s@iop@'"$iop"'@;s@level1@'$levelc'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/hl_input_template)"
-   elif [ "$calc" = "min" ]; then
-      cal="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/ts,noeigentest,//;s/tkmc/'$temperature'/;s@level1@'$levelc'@;s/charge/'$charge'/;s/mult/'$mult'/;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-   elif [ "$calc" = "irc" ]; then
-      cp ${tsdirhl}/${i}.chk ${tsdirhl}/IRC/ircf_${i}.chk
-      cp ${tsdirhl}/${i}.chk ${tsdirhl}/IRC/ircr_${i}.chk
-      #if imag <100 then stepsize=30
-      imag=$(awk 'BEGIN{fl=0};/Frequencies/{f0=$3;f=sqrt(f0*f0);if(f<100)fl=1;print fl ;exit}' $tsdirhl/$i.log )
-      if [ $imag -eq 1 ] ; then
-         echo "ts $i has an imaginary freq lower than 100 cm-1"
-         step_irc=30
-      else
-###EMN WARNING: step_irc=5 has been used to run the glycolonitrile calcs
-         #step_irc=10
-         step_irc=5
-      fi
-      if [ $noHLcalc -eq 1 ]; then
-         fcc="rcfc"
-      elif [ $noHLcalc -eq 2 ]; then
-         fcc="calcfc"
-      fi
-      calf="$(sed  's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s@iop@'"$iop"'@;s/opt=(ts,noeigentest,calcall,noraman)/guess=read geom=check irc=(forward,maxpoints='$IRCpoints','$fcc',recalc=10,stepsize='$step_irc') iop(1\/108=-1)/;s@level1@'$level1'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/hl_input_template_notemp)"
-      calr="$(sed  's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s@iop@'"$iop"'@;s/opt=(ts,noeigentest,calcall,noraman)/guess=read geom=check irc=(reverse,maxpoints='$IRCpoints','$fcc',recalc=10,stepsize='$step_irc') iop(1\/108=-1)/;s@level1@'$level1'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/hl_input_template_notemp)"
-      inp_hlf="$(echo -e "$chkf"'\n'"$calf"'\n'" "'\n'"$pseudo_end")"
-      inp_hlr="$(echo -e "$chkr"'\n'"$calr"'\n'" "'\n'"$pseudo_end")"
-      echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-      ((m=m+1))
-      echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-   elif [ "$calc" = "min_irc" ]; then
-      if [ -f $tsdirhl"/IRC/"$chkfilef".chk" ]; then
-         calmf="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/ts,noeigentest,//;s/tkmc/'$temperature'/;s@level1@'$level1' pop=(mk,nbo) guess=read@;s/charge/'$charge'/;s/mult/'$mult'/;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-      else 
-         calmf="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/ts,noeigentest,//;s/tkmc/'$temperature'/;s@level1@'$level1' pop=(mk,nbo)@;s/charge/'$charge'/;s/mult/'$mult'/;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-      fi
-      if [ -f $tsdirhl"/IRC/"$chkfiler".chk" ]; then
-         calmr="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/ts,noeigentest,//;s/tkmc/'$temperature'/;s@level1@'$level1' pop=(mk,nbo) guess=read@;s/charge/'$charge'/;s/mult/'$mult'/;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-      else 
-         calmr="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/ts,noeigentest,//;s/tkmc/'$temperature'/;s@level1@'$level1' pop=(mk,nbo)@;s/charge/'$charge'/;s/mult/'$mult'/;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-      fi
-      calsnoiop="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s@level1@'$level1' sp pop=(mk,nbo)@;s/charge/'$charge'/;s/mult/'$mult'/;/opt/,/temp/d' $sharedir/hl_input_template)"
-      calsiop="$(sed 's@Mem@'$mem'@;s@pseudo@'$pseudo'@;s/opt=(ts,noeigentest,calcall,noraman)//;s@level1@'$level1' sp pop=(mk,nbo)@;s/charge/'$charge'/;s/mult/'$mult'/;/temp/d;s@iop@'"$iop"'@' $sharedir/hl_input_template)"
-      if [ $(nfrag.sh tmp_geomf_$i ${nfrag_th} $nA) -eq 1 ]; then
-         calf="$calmf"
-      else
-         if [ -z "$iop" ]; then
-            calf="$calsnoiop"
-         else
-            calf="$calsiop"
-         fi
-         if [ ! -z $diss ]; then 
-            calfxqc="$(echo "$calf" | sed 's@sp@sp scf=xqc@')"
-            calf="$calfxqc"
-         fi
-      fi
-
-      if [ -z $diss ]; then
-         if [ $(nfrag.sh tmp_geomr_$i ${nfrag_th} $nA) -eq 1 ]; then
-            calr="$calmr"
-         else
-            if [ -z "$iop" ]; then
-               calr="$calsnoiop"
-            else
-               calr="$calsiop"
-            fi
-         fi
-      fi
-
-      inp_hlminf="$(echo -e "$chkf"'\n'"$calf"'\n'"$geof"'\n'" "'\n'"$pseudo_end")"
-      inp_hlminr="$(echo -e "$chkr"'\n'"$calr"'\n'"$geor"'\n'" "'\n'"$pseudo_end")"
-
-      if [ $noHLcalc -eq 2 ]; then
-         spcf="$(sed 's/chk=/chk='$chkfilef'/;s@level2@'$level2'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/sp_template)"
-         if [ ! -z $diss ]; then 
-            spcfxqc="$(echo "$spcf" | sed 's@guess=read@guess=read scf=xqc@')"
-            spcf="$spcfxqc"
-         fi
-         spcr="$(sed 's/chk=/chk='$chkfiler'/;s@level2@'$level2'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/sp_template)"
-         inp_hlminf="$(echo -e "$chkf"'\n'"$calf"'\n'"$geof"'\n\n'"$spcf")"
-         inp_hlminr="$(echo -e "$chkr"'\n'"$calr"'\n'"$geor"'\n\n'"$spcr")"
-      fi
-
-      if [ -z $diss ] ; then
-         echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-         echo -e "insert or ignore into gaussian values (NULL,'minr_$i','$inp_hlminr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-      else
-         echo -e "insert or ignore into gaussian values (NULL,'min_diss_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/DISS/inputs.db
-      fi
-   fi
-   inp_hl="$(echo -e "$chk"'\n'"$cal"'\n'"$geo"'\n'" "'\n'"$pseudo_end")"
-   if [ $noHLcalc -eq 2 ] && [ "$level" = "hl" ]; then
-      spc="$(sed 's/chk=/chk='$chkfile'/;s@level2@'$level2'@;s/charge/'$charge'/;s/mult/'$mult'/' $sharedir/sp_template)"
-      inp_hl="$(echo -e "$chk"'\n'"$cal"'\n'"$geo"'\n\n'"$spc")"
-   fi
-}
-
-###############################################
-get_geom_g09.sh:
-
-#!/bin/bash
-sharedir=${AMK}/share
-elements=${sharedir}/elements
-
-awk 'BEGIN{huge=1000000}
-{if( NR == FNR) l[NR]=$1}
-/orientation:/{ getline
-if($1~"---") {
-   getline
-   getline
-   getline
-   i=1
-   while(i<=huge){
-     getline
-     if(NF==1) break
-     n[i]=$2
-     x[i]=$4
-     y[i]=$5
-     z[i]=$6
-     natom=i
-     i++
-     }
-   }
-}
-END{
-i=1
-while(i<=natom){
-  print l[n[i]],x[i],y[i],z[i]
-  i++
+get_freq_g09.sh:
+awk '/Frequencies/{++j;for(i=3;i<=NF;i++) {l=i-2;k=(j-1)*3+l;freq[k]=$i}}
+END{nfreq=k
+k=1
+while(k<=nfreq) {
+  if(sqrt(freq[k]*freq[k])<1) freq[k]=1
+  printf "%5.0f\n",freq[k]
+  k++
   }
-}' $elements $1
+}' $1
 
-#####################################
-runTS.sh:
-
-#!/bin/bash
-cd "$2"
-name="$(sqlite3 inputs.db "select name from gaussian where id=$1")"
-inp="$(sqlite3 inputs.db "select input from gaussian where id=$1")"
-echo -e "$inp\n\n" > ${name}.dat
-if [ "$inp" != "salir" ]; then
-   if [ "$3" = "g09" ];then
-      g09 <${name}.dat &>${name}.log
-      t=$(awk 'BEGIN{t=0};/Error termination via/{t=1};END{print t}' ${name}.log)
-      if [ $t -eq 1 ]; then
-      #Constructing new input file (cartesian opt)
-        echo -e "$inp\n\n" | sed 's/calcfc/cartesian,maxcycle=100,calcfc/;s/calcall/cartesian,maxcycle=100,calcall/' > ${name}.dat
-        g09 <${name}.dat &> ${name}.log
-      fi
-      t=$(awk 'BEGIN{t=0};/Error termination via/{t=1};END{print t}' ${name}.log)
-      if [ $t -eq 1 ]; then
-      #Constructing new input file (cartesian nosymm)
-        echo -e "$inp\n\n" | sed 's/calcfc,noraman)/cartesian,maxcycle=100,calcfc,noraman) nosymm/;s/calcall,noraman)/cartesian,maxcycle=100,calcall,noraman) nosymm/' > ${name}.dat
-        g09 <${name}.dat &> ${name}.log
-      fi
-   elif [ "$3" = "g16" ];then
-      g16 <${name}.dat &>${name}.log
-      t=$(awk 'BEGIN{t=0};/Error termination via/{t=1};END{print t}' ${name}.log)
-      if [ $t -eq 1 ]; then
-      #Constructing new input file (cartesian opt)
-        echo -e "$inp\n\n" | sed 's/calcfc/cartesian,maxcycle=100,calcfc/;s/calcall/cartesian,maxcycle=100,calcall/' > ${name}.dat
-        g16 <${name}.dat &> ${name}.log
-      fi
-      t=$(awk 'BEGIN{t=0};/Error termination via/{t=1};END{print t}' ${name}.log)
-      if [ $t -eq 1 ]; then
-      #Constructing new input file (cartesian nosymm)
-        echo -e "$inp\n\n" | sed 's/calcfc,noraman)/cartesian,maxcycle=100,calcfc,noraman) nosymm/;s/calcall,noraman)/cartesian,maxcycle=100,calcall,noraman) nosymm/' > ${name}.dat
-        g16 <${name}.dat &> ${name}.log
-      fi
-   elif [ "$3" = "qcore" ];then
-      entos.py ${name}.dat > ${name}.log 2>&1
-   fi
-fi
