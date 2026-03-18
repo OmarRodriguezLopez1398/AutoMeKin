@@ -1610,18 +1610,21 @@ elif [ "$program_hl" = "orca" ]; then
    ok=$(awk 'BEGIN{fok=0;ok=0;nt=0}
    /ORCA TERMINATED NORMALLY/{++nt}
    /VIBRATIONAL FREQUENCIES/{
-      getline; getline; getline; getline  # skip headers and blank lines
-      nfreq=0
+      getline; getline; getline; getline   # skip headers and blank lines
+      first=0; second=0; fok=0            # reset at each new block -> keeps last instance
       while(1){
          getline
          if($0 !~ /cm\*\*-1/) break
-         ++nfreq
          freq=$2
-         if(nfreq==1 && freq<0) fok=1   # first real freq must be imaginary (TS)
-         if(nfreq==2 && freq>0) fok=(fok==1)?1:0  # second must be positive
+         val=freq; if(val<0) val=-val
+         if(val<1) continue                 # skip zero freqs (translation/rotation)
+         if(first==0){first=freq; continue} # first real freq
+         if(second==0){second=freq}         # second real freq
+         break
       }
+      if(first<0 && second>0) fok=1
    }
-   END{if(nt==('$noHLcalc'+1) && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
+   END{if(nt==1 && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
 elif [ "$program_hl" = "qcore" ]; then
    ok=$(awk 'BEGIN{ok=0};/Freq/{getline;f1=$1;getline;f2=$1;if(f1<0 && f2>0) ok=1};END{print ok}' $tsdirhl/${name}.log)
 fi
