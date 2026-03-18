@@ -1,15 +1,12 @@
 #!/bin/bash
-sharedir=${AMK}/share
-elements=${sharedir}/elements
-
-# Extracts the last "CARTESIAN COORDINATES (ANGSTROEM)" block from an ORCA output
-awk 'BEGIN{huge=1000000}
-{if(NR == FNR) l[NR]=$1}
+# Extracts the LAST "CARTESIAN COORDINATES (ANGSTROEM)" block from an ORCA output
+# Symbol is in column 1, coordinates in columns 2,3,4
+awk '
 /CARTESIAN COORDINATES \(ANGSTROEM\)/{
-   getline   # skip header line "---..."
-   getline   # skip blank line
+   getline   # skip "---..." line
+   delete sym; delete x; delete y; delete z
    i=1
-   while(i<=huge){
+   while(1){
       getline
       if(NF==0) break
       sym[i]=$1
@@ -21,9 +18,5 @@ awk 'BEGIN{huge=1000000}
    }
 }
 END{
-   i=1
-   while(i<=natom){
-      print sym[i], x[i], y[i], z[i]
-      i++
-   }
-}' $elements $1
+   for(i=1;i<=natom;i++) print sym[i], x[i], y[i], z[i]
+}' $1
