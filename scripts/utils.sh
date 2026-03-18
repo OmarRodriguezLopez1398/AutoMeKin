@@ -1298,14 +1298,17 @@ function orca_input {
    nprocs=${SLURM_CPUS_PER_TASK:-1}
 
    if [ "$calc" = "ts" ]; then
-      cal="! $levelc_orca OptTS NumFreq
+      cal="! $levelc_orca OptTS TightSCF NumFreq
 %pal nprocs $nprocs end
 %geom
   Calc_Hess true
+  Recalc_hess 1
+  MaxIter 100
+  cartfallback true
   NumHess true
 end"
    elif [ "$calc" = "min" ] || [ "$calc" = "min_irc" ]; then
-      cal="! $levelc_orca Opt NumFreq
+      cal="! $levelc_orca Opt TightSCF NumFreq
 %pal nprocs $nprocs end"
    elif [ "$calc" = "irc" ]; then
       cal="! $levelc_orca IRC
