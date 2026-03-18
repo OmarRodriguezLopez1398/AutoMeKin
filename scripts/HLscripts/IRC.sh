@@ -112,13 +112,10 @@ do
       if [ $(awk 'BEGIN{c=0};/Job /{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
     fi
   elif [ "$program_hl" = "orca" ]; then
-    # ORCA does both directions in a single job, output is irc_${i}.log
-    if [ -f ${tsdirhl}/IRC/irc_${i}.log ]; then
-      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/irc_${i}.log) -eq 0 ]; then
-        rm -rf ${tsdirhl}/IRC/irc_${i}.*
-      fi
+    if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
+      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
+      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
     fi
-  fi
   if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
     echo "IRC completed for $i"
   elif [ -f ${tsdirhl}/IRC/irc_${i}.log ]; then
@@ -137,11 +134,15 @@ do
        echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
        echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     elif [ "$program_hl" = "orca" ]; then
-       # ORCA: read TS geometry from optimized TS log
        geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
+       # Forward IRC
+       irc_direction=forward
        orca_input
-       # ORCA does both directions in one job, store as irc_$i
-       echo -e "insert or ignore into gaussian values (NULL,'irc_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+       echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+       # Reverse IRC
+       irc_direction=backward
+       orca_input
+       echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     else
        ${program_hl}_input
        echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db

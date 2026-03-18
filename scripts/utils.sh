@@ -1311,7 +1311,7 @@ end"
 %pal nprocs $nprocs end
 %irc
   MaxIter $IRCpoints
-  Direction both
+  Direction $irc_direction
   PrintLevel 1
 end"
    fi
