@@ -1,5 +1,4 @@
 #!/bin/bash
-# Corrección térmica a G en Hartree
-awk '/Total enthalpy/{H=$NF}
-     /Final Gibbs free energy/{G=$NF}
-     END{printf "%14.9f\n",G}' $1
+# Final Gibbs free energy in Hartree from ORCA output
+# Line format: "Final Gibbs free energy         ...   -186.14961271 Eh"
+awk '/Final Gibbs free energy/{print $(NF-1)}' $1
