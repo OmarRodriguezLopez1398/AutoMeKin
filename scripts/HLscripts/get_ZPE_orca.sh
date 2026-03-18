@@ -1,4 +1,3 @@
 #!/bin/bash
-# ZPE in kcal/mol from ORCA output
-# Line format: "Zero point energy                ...      0.03711484 Eh      23.29 kcal/mol"
-awk '/Zero point energy/{print $(NF-1)}' $1
+# ZPE in kcal/mol from ORCA output - takes LAST instance
+awk '/Zero point energy/{zpe=$(NF-1)} END{print zpe}' $1
