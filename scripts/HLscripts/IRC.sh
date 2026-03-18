@@ -68,12 +68,16 @@ for name in $(awk '{print $3}' $file)
 do
   echo "Checking $name"
   number=$(echo $name | sed 's@ts@@;s@_@ @' | awk '{print $1}')
+  # For ORCA, output can be .out; copy to .log for compatibility
+  if [ "$program_hl" = "orca" ] && [ -f $tsdirhl/${name}.out ] && [ ! -f $tsdirhl/${name}.log ]; then
+     cp $tsdirhl/${name}.out $tsdirhl/${name}.log
+  fi
   if [ -f $tsdirhl/${name}.log ]; then
     check_freq_ts
     if [ $ok -eq 1 ]; then
        ((nts=nts+1))
        #insert into tshl table
-       get_data_hl_output 
+       get_data_hl_output
        sqlite3 ${tsdirhl}/TSs/tshl.db "insert into tshl (natom,name,energy,zpe,g,geom,freq,number,sigma) values ($natom,'$name',$energy,$zpe,$g,'$geom','$freq',$number,$sigma);"
        #screen the list to remove duplicates
        screen_ts_hl
@@ -85,7 +89,7 @@ do
     echo $name "has been removed because of previous repetitions or it does not exist"
     continue
   fi
-done 
+done
 #statistics
 stats_hl_tss
 

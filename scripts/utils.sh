@@ -1593,14 +1593,41 @@ echo $nmin "have been optimized at the HL, of which" $nrm "removed because of re
 echo "Current number of MINs optimized at the HL=" $nfin
 }
 
+#function check_freq_ts {
+#if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+#   ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3<0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if(nt==('$noHLcalc'+1) && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
+#elif [ "$program_hl" = "qcore" ]; then
+#   ok=$(awk 'BEGIN{ok=0};/Freq/{getline;f1=$1;getline;f2=$1;if(f1<0 && f2>0) ok=1};END{print ok}' $tsdirhl/${name}.log)
+#fi
+#}
+##################################################
+############New_check_freq_ts_funct###############
+##################################################
 function check_freq_ts {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
    ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3<0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if(nt==('$noHLcalc'+1) && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
+elif [ "$program_hl" = "orca" ]; then
+   ok=$(awk 'BEGIN{fok=0;ok=0;nt=0}
+   /ORCA TERMINATED NORMALLY/{++nt}
+   /VIBRATIONAL FREQUENCIES/{
+      getline; getline; getline; getline  # skip headers and blank lines
+      nfreq=0
+      while(1){
+         getline
+         if($0 !~ /cm\*\*-1/) break
+         ++nfreq
+         freq=$2
+         if(nfreq==1 && freq<0) fok=1   # first real freq must be imaginary (TS)
+         if(nfreq==2 && freq>0) fok=(fok==1)?1:0  # second must be positive
+      }
+   }
+   END{if(nt==('$noHLcalc'+1) && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
 elif [ "$program_hl" = "qcore" ]; then
    ok=$(awk 'BEGIN{ok=0};/Freq/{getline;f1=$1;getline;f2=$1;if(f1<0 && f2>0) ok=1};END{print ok}' $tsdirhl/${name}.log)
 fi
 }
-
+##################################################
+##################################################
 function check_ts {
 if [ -f ${tsdirhl}/${name}.log ]; then
    if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
