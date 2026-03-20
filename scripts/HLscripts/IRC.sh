@@ -113,8 +113,8 @@ do
     fi
   elif [ "$program_hl" = "orca" ]; then
     if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then
-      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
-      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
+      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};/ERROR !!!/{c=0};END{print c}' ${tsdirhl}/IRC/ircf_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircf_${i}.* ; fi
+      if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};/ERROR !!!/{c=0};END{print c}' ${tsdirhl}/IRC/ircr_${i}.log) -eq 0 ]; then rm -rf ${tsdirhl}/IRC/ircr_${i}.* ; fi
     fi
   fi
   if [ -f ${tsdirhl}/IRC/ircf_${i}.log ] && [ -f ${tsdirhl}/IRC/ircr_${i}.log ]; then

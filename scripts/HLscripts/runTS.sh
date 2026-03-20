@@ -29,16 +29,14 @@ if [ "$inp" != "salir" ]; then
          g16 <${name}.dat &> ${name}.log
       fi
    elif [ "$3" = "orca" ]; then
-      # ORCA requiere el input como fichero .inp
       cp ${name}.dat ${name}.inp
       orca ${name}.inp > ${name}.out 2>&1
-      t=$(awk 'BEGIN{t=0};/ERROR/{t=1};END{print t}' ${name}.out)
-      if [ $t -eq 1 ]; then
-         # Reintento: añadir slowconv para problemas de convergencia SCF
+      t=$(awk 'BEGIN{t=0};/ORCA TERMINATED NORMALLY/{t=1};/ERROR !!!/{t=0};END{print t}' ${name}.out)
+      if [ $t -eq 0 ]; then
          sed 's/^!/! SlowConv /' ${name}.inp > ${name}_retry.inp
          orca ${name}_retry.inp > ${name}.out 2>&1
       fi
-      # Copiar salida final con extensión .log para compatibilidad con el resto del pipeline
+      # Copiar salida con extensión .log para compatibilidad con el resto del pipeline
       cp ${name}.out ${name}.log
    elif [ "$3" = "qcore" ]; then
       entos.py ${name}.dat > ${name}.log 2>&1

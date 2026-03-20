@@ -1,38 +1,71 @@
-get_energy_g09_CCSDT.sh: 
-file=$1
-nc=$2
-awk '/sp ca/{++fl};/CCSD\(T/{if(fl=='$nc'-1) {print $2;exit}}' $file |  sed 's/D/ /g'  | awk '{printf "%14.9f\n",$1*10^$2} '
+function orca_input {
+   if [ "$level" = "ll" ]; then
+      levelc=$method_opt
+   elif [ "$level" = "hl" ]; then
+      levelc=$level1
+   fi
 
-get_energy_g09_DFT.sh:
-file=$1
-nc=$2
-awk '/sp ca/{++fl};/SCF Done/{if(fl=='$nc'-1) e=$5};END{print e}' $file 
+   # Convertir sintaxis Gaussian (CCSD(T)/cc-pVTZ) a sintaxis ORCA (CCSD(T) cc-pVTZ)
+   levelc_orca="$(echo "$levelc" | sed 's@/@ @g')"
 
-get_energy_g09_HF.sh:
-file=$1
-nc=$2
-awk '/sp ca/{++fl};/SCF Done/{if(fl=='$nc'-1 && $3 ~ /HF/) e=$5};END{print e}' $file 
+   nprocs=${SLURM_CPUS_PER_TASK:-1}
 
+   if [ "$calc" = "ts" ]; then
+      cal="! $levelc_orca OptTS TightOpt TightSCF Freq
+%pal nprocs $nprocs end
+%geom
+  Calc_Hess true
+  Recalc_hess 5
+  MaxIter 100
+  cartfallback true
+end"
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
-get_energy_g09_MP2.sh:
-file=$1
-nc=$2
-awk '/sp ca/{++fl};/MP2/{if(fl=='$nc'-1 && NF==6) e=$NF};END{print e}' $file | sed 's/D/ /g' | awk '{printf "%14.9f\n",$1*10^$2} '
+   elif [ "$calc" = "min" ]; then
+      cal="! $levelc_orca Opt TightSCF NumFreq
+%pal nprocs $nprocs end"
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
-get_ZPE_g09.sh:
-awk '/Zero-point vibrational energy/{getline;print $1;exit}' $1
+   elif [ "$calc" = "irc" ]; then
+      cal="! $levelc_orca IRC TightSCF
+%pal nprocs $nprocs end
+%irc
+  MaxIter $IRCpoints
+  Direction $irc_direction
+  PrintLevel 1
+end"
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
-get_G_g09.sh:
-awk '/Thermal correction to Gibbs Free Energy/{print $7;exit}' $1
+   elif [ "$calc" = "min_irc" ]; then
+      # Forward minimum
+      if [ $(nfrag.sh tmp_geomf_$i ${nfrag_th} $nA) -eq 1 ]; then
+         # Single molecule: full optimization + frequencies
+         calf="! $levelc_orca Opt TightSCF NumFreq
+%pal nprocs $nprocs end"
+      else
+         # Fragments already formed: single point only
+         calf="! $levelc_orca SP TightSCF
+%pal nprocs $nprocs end"
+      fi
+      # Reverse minimum
+      if [ -z $diss ]; then
+         if [ $(nfrag.sh tmp_geomr_$i ${nfrag_th} $nA) -eq 1 ]; then
+            calr="! $levelc_orca Opt TightSCF NumFreq
+%pal nprocs $nprocs end"
+         else
+            calr="! $levelc_orca SP TightSCF
+%pal nprocs $nprocs end"
+         fi
+      fi
 
-get_freq_g09.sh:
-awk '/Frequencies/{++j;for(i=3;i<=NF;i++) {l=i-2;k=(j-1)*3+l;freq[k]=$i}}
-END{nfreq=k
-k=1
-while(k<=nfreq) {
-  if(sqrt(freq[k]*freq[k])<1) freq[k]=1
-  printf "%5.0f\n",freq[k]
-  k++
-  }
-}' $1
+      inp_hlminf="$(echo -e "$calf\n* xyz $charge $mult\n$geof\n*")"
+      inp_hlminr="$(echo -e "$calr\n* xyz $charge $mult\n$geor\n*")"
 
+      if [ -z $diss ]; then
+         echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+         echo -e "insert or ignore into gaussian values (NULL,'minr_$i','$inp_hlminr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+      else
+         echo -e "insert or ignore into gaussian values (NULL,'min_diss_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/DISS/inputs.db
+      fi
+   fi
+}

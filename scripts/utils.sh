@@ -38,7 +38,7 @@ function print_ref {
    build="$(awk '{print $1}' ${AMK}/share/amk_build)"
    echo "==================================="
    echo "                                   "
-   echo "           AutoMeKin2021           "
+   echo "           AutoMeKin2026           "
    echo "                                   "
    echo "        revision number ${build}   "
    echo "                                   "
@@ -279,7 +279,7 @@ function read_input {
       fi
    fi
    program_opt=$(awk 'BEGIN{popt="'$program_md'"};{if($1=="LowLevel_TSopt") {popt=$2}};END{print tolower(popt)}' $inputfile)
-###check g09 is installed
+###check g09/g16/orca is installed
    if [ "$program_opt" = "g09" ];then
       if ! command -v g09 &> /dev/null
       then
@@ -293,6 +293,14 @@ function read_input {
       then
          echo ""
          echo "g16 does not seem to be installed"
+         echo "Aborting..."
+         exit
+      fi
+   elif [ "$program_opt" = "orca" ];then
+      if ! command -v orca &> /dev/null
+      then
+         echo ""
+         echo "orca does not seem to be installed"
          echo "Aborting..."
          exit
       fi
@@ -376,7 +384,10 @@ function read_input {
    #######################################################
    HLstring="$(echo "$HLstring0" | sed 's@//@ @')"
    reduce=$(awk 'BEGIN{red=-1};{if($1=="HL_rxn_network") {if($2=="complete") red=0;if($2=="reduced" && NF==3) red=$3}};END{print red}' $inputfile)
+   #noHLcalc=$(echo $HLstring | awk 'BEGIN{nc=0};{nc=NF};END{print nc}')
    noHLcalc=$(echo $HLstring | awk 'BEGIN{nc=0};{nc=NF};END{print nc}')
+   # For ORCA, always single job regardless of method string
+   if [ "$program_hl" = "orca" ]; then noHLcalc=1; fi
    ###########cambiando_esto#####################
    #IRCpoints=$(awk 'BEGIN{if("'$program_hl'"~/g[01][96]/)np=100;if("'$program_hl'"=="qcore")np=500};{if($1=="IRCpoints") np=$2};END{print np}' $inputfile)
    #######################por_esto####################
@@ -1296,31 +1307,80 @@ function orca_input {
    levelc_orca="$(echo "$levelc" | sed 's@/@ @g')"
 
    nprocs=${SLURM_CPUS_PER_TASK:-1}
+   # Memoria por proceso en MB
+   mem_mb=$(echo "$mem * 1000 / $nprocs" | bc)
+
+   # Frecuencias numericas solo para metodos post-HF
+   if [ "$HLcalc" = "CCSDT" ] || [ "$HLcalc" = "MP2" ]; then
+      freq_keyword="NumFreq"
+   else
+      freq_keyword="Freq"
+   fi
 
    if [ "$calc" = "ts" ]; then
-      cal="! $levelc_orca OptTS TightSCF NumFreq
+      cal="! $levelc_orca OptTS TightOpt TightSCF $freq_keyword
+%maxcore $mem_mb
 %pal nprocs $nprocs end
 %geom
   Calc_Hess true
-  Recalc_hess 1
+  Recalc_Hess 5
   MaxIter 100
   cartfallback true
-  NumHess true
 end"
-   elif [ "$calc" = "min" ] || [ "$calc" = "min_irc" ]; then
-      cal="! $levelc_orca Opt TightSCF NumFreq
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
+
+   elif [ "$calc" = "min" ]; then
+      cal="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+%maxcore $mem_mb
 %pal nprocs $nprocs end"
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
+
    elif [ "$calc" = "irc" ]; then
-      cal="! $levelc_orca IRC
+      cal="! $levelc_orca IRC TightSCF
+%maxcore $mem_mb
 %pal nprocs $nprocs end
 %irc
   MaxIter $IRCpoints
   Direction $irc_direction
   PrintLevel 1
+  HessName \"${tsdirhl}/${i}.hess\"
 end"
-   fi
+      inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
-   inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
+   elif [ "$calc" = "min_irc" ]; then
+      # Forward minimum
+      if [ $(nfrag.sh tmp_geomf_$i ${nfrag_th} $nA) -eq 1 ]; then
+         calf="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+%maxcore $mem_mb
+%pal nprocs $nprocs end"
+      else
+         calf="! $levelc_orca SP TightSCF
+%maxcore $mem_mb
+%pal nprocs $nprocs end"
+      fi
+      # Reverse minimum
+      if [ -z $diss ]; then
+         if [ $(nfrag.sh tmp_geomr_$i ${nfrag_th} $nA) -eq 1 ]; then
+            calr="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+%maxcore $mem_mb
+%pal nprocs $nprocs end"
+         else
+            calr="! $levelc_orca SP TightSCF
+%maxcore $mem_mb
+%pal nprocs $nprocs end"
+         fi
+      fi
+
+      inp_hlminf="$(echo -e "$calf\n* xyz $charge $mult\n$geof\n*")"
+      inp_hlminr="$(echo -e "$calr\n* xyz $charge $mult\n$geor\n*")"
+
+      if [ -z $diss ]; then
+         echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+         echo -e "insert or ignore into gaussian values (NULL,'minr_$i','$inp_hlminr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+      else
+         echo -e "insert or ignore into gaussian values (NULL,'min_diss_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/DISS/inputs.db
+      fi
+   fi
 }
 #############END###############################
 ###############################################
@@ -1609,19 +1669,20 @@ function check_freq_ts {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
    ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3<0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if(nt==('$noHLcalc'+1) && fok==1) ok=1; print ok}' $tsdirhl/${name}.log)
 elif [ "$program_hl" = "orca" ]; then
-   ok=$(awk 'BEGIN{fok=0;ok=0;nt=0}
+      ok=$(awk 'BEGIN{fok=0;ok=0;nt=0}
    /ORCA TERMINATED NORMALLY/{++nt}
+   /ERROR !!!/{nt=0}
    /VIBRATIONAL FREQUENCIES/{
-      getline; getline; getline; getline   # skip headers and blank lines
-      first=0; second=0; fok=0            # reset at each new block -> keeps last instance
+      getline; getline; getline; getline
+      first=0; second=0; fok=0
       while(1){
          getline
          if($0 !~ /cm\*\*-1/) break
          freq=$2
          val=freq; if(val<0) val=-val
-         if(val<1) continue                 # skip zero freqs (translation/rotation)
-         if(first==0){first=freq; continue} # first real freq
-         if(second==0){second=freq}         # second real freq
+         if(val<1) continue
+         if(first==0){first=freq; continue}
+         if(second==0){second=freq}
          break
       }
       if(first<0 && second>0) fok=1
@@ -1633,10 +1694,26 @@ fi
 }
 ##################################################
 ##################################################
+#function check_ts {
+#if [ -f ${tsdirhl}/${name}.log ]; then
+#   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
+#      calc=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt==('$noHLcalc'+1)) calc=0;print calc}' $tsdirhl/${name}.log)
+#   elif [ "$program_hl" = "qcore" ];then
+#      calc=$(awk 'BEGIN{calc=1;ncheck=0};/Energy=/{if(NF==2) ncheck+=1};/Lowest/{ncheck+=1};/Error/{calc=0};END{if(ncheck==2) calc=0;print calc}' $tsdirhl/${name}.log)
+#   fi
+#else
+#   calc=1
+#fi
+#}
+###################################################
+############Cambiando_check_ts_funct###############
+###################################################
 function check_ts {
 if [ -f ${tsdirhl}/${name}.log ]; then
    if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
       calc=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt==('$noHLcalc'+1)) calc=0;print calc}' $tsdirhl/${name}.log)
+   elif [ "$program_hl" = "orca" ];then
+      calc=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/ERROR !!!/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/${name}.log)
    elif [ "$program_hl" = "qcore" ];then
       calc=$(awk 'BEGIN{calc=1;ncheck=0};/Energy=/{if(NF==2) ncheck+=1};/Lowest/{ncheck+=1};/Error/{calc=0};END{if(ncheck==2) calc=0;print calc}' $tsdirhl/${name}.log)
    fi
@@ -1644,6 +1721,8 @@ else
    calc=1
 fi
 }
+###################################################
+###################################################
 
 function check_freq_min {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
@@ -1683,8 +1762,8 @@ if [ -f $tsdirhl/IRC/minf_$i.log ] && [ -f $tsdirhl/IRC/minr_$i.log ]; then
       calc1=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
       calc2=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
    elif [ "$program_hl" = "orca" ]; then
-      calc1=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/Error/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
-      calc2=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/Error/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
+      calc1=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/ERROR !!!/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minf_$i.log)
+      calc2=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/ERROR !!!/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/IRC/minr_$i.log)
    elif [ "$program_hl" = "qcore" ]; then
       calc1=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minf_$i.log)
       calc2=$(awk 'BEGIN{calc=1};/Energy=/{if(NF==2) calc=0};END{print calc}' $tsdirhl/IRC/minr_$i.log)

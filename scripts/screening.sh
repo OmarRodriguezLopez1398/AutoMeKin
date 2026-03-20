@@ -74,6 +74,10 @@ do
       get_geom_g09.sh $file >> tmp_geom
    elif [ "$program_opt" = "qcore" ]; then
       awk '/Final structure/{flag=1; next} EOF{flag=0} flag{++n;a[n]=$0};END{print n"\n";for(i=1;i<=n;i++) print a[i]}' ${file} > tmp_geom
+   elif [ "$program_opt" = "orca" ]; then
+      echo $natom > tmp_geom
+      echo "" >> tmp_geom
+      get_geom_orca.sh $file >> tmp_geom
    else
       get_geom_mopac.sh $file > tmp_geom
    fi
@@ -97,6 +101,8 @@ do
       tmp_e=$(get_energy_g09_${LLcalc}.sh $file 1)
    elif [ "$program_opt" = "qcore" ]; then
       tmp_e=$(awk '/Energy=/{e0=$2};END{print e0}' $file)
+   elif [ "$program_opt" = "orca" ]; then
+      tmp_e=$(get_energy_orca_${LLcalc}.sh $file 1)
    else
       tmp_e=$(awk '/HEAT OF FORMATION =/{e=$5};END{printf "%9.3f\n",e}' $file)
    fi

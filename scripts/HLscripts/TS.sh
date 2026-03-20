@@ -125,7 +125,7 @@ if [ -f $tsdirhl/min0.log ]; then
    if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
       calc=$(awk 'BEGIN{calc=1;nt=0};/Normal termi/{++nt};/Error termi/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/min0.log)
    elif [ "$program_hl" = "orca" ]; then
-      calc=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/Error/{calc=0};END{if(nt=='$noHLcalc') calc=0;print calc}' $tsdirhl/min0.log)
+      calc=$(awk 'BEGIN{calc=1;nt=0};/ORCA TERMINATED NORMALLY/{++nt};/ERROR !!!/{calc=0};END{if(nt==1) calc=0;print calc}' $tsdirhl/min0.log)
    elif [ "$program_hl" = "qcore" ]; then
       calc=$(awk 'BEGIN{calc=1;ncheck=0};/Energy=/{if(NF==2) ncheck+=1};/Lowest/{ncheck+=1};/Error/{calc=0};END{if(ncheck==2) calc=0;print calc}' $tsdirhl/min0.log)
    fi
