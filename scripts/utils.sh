@@ -1336,14 +1336,41 @@ end"
       inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
    elif [ "$calc" = "irc" ]; then
+      # Leer frecuencia imaginaria para ajustar el paso
+      imag=$(awk 'BEGIN{fl=0}
+      /VIBRATIONAL FREQUENCIES/{
+         getline;getline;getline;getline
+         while(1){
+            getline
+            if($0 !~ /cm\*\*-1/) break
+            freq=$2
+            val=freq; if(val<0) val=-val
+            if(val<1) continue
+            if(freq<0 && val<100) fl=1
+            break
+         }
+      } END{print fl}' $tsdirhl/$i.log)
+      if [ $imag -eq 1 ]; then
+         step_irc=0.3
+      else
+         step_irc=0.1
+      fi
+      # Verificar que existe el .hess del TS
+      if [ -f ${tsdirhl}/${i}.hess ]; then
+         hess_line="  HessName \"${tsdirhl}/${i}.hess\""
+      else
+         echo "WARNING: ${i}.hess not found, IRC will recalculate hessian"
+         hess_line="  Calc_Hess true"
+      fi
       cal="! $levelc_orca IRC TightSCF
 %maxcore $mem_mb
 %pal nprocs $nprocs end
 %irc
   MaxIter $IRCpoints
   Direction $irc_direction
+  StepSize $step_irc
   PrintLevel 1
-  HessName \"${tsdirhl}/${i}.hess\"
+$hess_line
 end"
       inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 

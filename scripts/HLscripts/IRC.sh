@@ -126,15 +126,14 @@ do
     sqlite3 "" "attach '${tsdirhl}/TSs/tshl.db' as tshl; attach '${tsdirhl}/TSs/tshlhe.db' as tshlhe;
     insert into tshlhe (natom,name,energy,zpe,g,geom,freq,number) select natom,name,energy,zpe,g,geom,freq,number from tshl where name='$i';delete from tshl where name='$i';"
   else
-    ((m=m+1))
     echo "Submit IRC calc for" $i
     calc=irc
     level=hl
-    if [ "$program_hl" = "g16" ]; then
+    if [ "$program_hl" = "g16" ] || [ "$program_hl" = "g09" ]; then
+       # g09_input already handles m increment and sqlite insert internally for irc
        g09_input
-       echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-       echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     elif [ "$program_hl" = "orca" ]; then
+       ((m=m+1))
        geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
        # Forward IRC
        irc_direction=forward
@@ -146,8 +145,6 @@ do
        echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     else
        ${program_hl}_input
-       echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hlf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-       echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hlr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
     fi
   fi
 done
