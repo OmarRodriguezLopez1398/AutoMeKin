@@ -133,13 +133,14 @@ do
        # g09_input already handles m increment and sqlite insert internally for irc
        g09_input
     elif [ "$program_hl" = "orca" ]; then
-       ((m=m+1))
        geo="$(get_geom_orca.sh $tsdirhl/${i}.log)"
        # Forward IRC
+       ((m=m+1))
        irc_direction=forward
        orca_input
        echo -e "insert or ignore into gaussian values (NULL,'ircf_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
        # Reverse IRC
+       ((m=m+1))
        irc_direction=backward
        orca_input
        echo -e "insert or ignore into gaussian values (NULL,'ircr_$i','$inp_hl');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
