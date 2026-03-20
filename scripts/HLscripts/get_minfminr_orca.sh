@@ -16,4 +16,4 @@ get_geom_irc
 calc=min_irc
 level=hl
 orca_input
-# orca_input already handles sqlite insert internally for min_irc
+# orca_input handles sqlite insert internally for min_irc

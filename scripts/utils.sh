@@ -1375,31 +1375,12 @@ end"
       inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
    elif [ "$calc" = "min_irc" ]; then
-      # Forward minimum
-      if [ $(nfrag.sh tmp_geomf_$i ${nfrag_th} $nA) -eq 1 ]; then
-         calf="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+      cal="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
 %maxcore $mem_mb
 %pal nprocs $nprocs end"
-      else
-         calf="! $levelc_orca SP TightSCF
-%maxcore $mem_mb
-%pal nprocs $nprocs end"
-      fi
-      # Reverse minimum
-      if [ -z $diss ]; then
-         if [ $(nfrag.sh tmp_geomr_$i ${nfrag_th} $nA) -eq 1 ]; then
-            calr="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
-%maxcore $mem_mb
-%pal nprocs $nprocs end"
-         else
-            calr="! $levelc_orca SP TightSCF
-%maxcore $mem_mb
-%pal nprocs $nprocs end"
-         fi
-      fi
 
-      inp_hlminf="$(echo -e "$calf\n* xyz $charge $mult\n$geof\n*")"
-      inp_hlminr="$(echo -e "$calr\n* xyz $charge $mult\n$geor\n*")"
+      inp_hlminf="$(echo -e "$cal\n* xyz $charge $mult\n$geof\n*")"
+      inp_hlminr="$(echo -e "$cal\n* xyz $charge $mult\n$geor\n*")"
 
       if [ -z $diss ]; then
          echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
