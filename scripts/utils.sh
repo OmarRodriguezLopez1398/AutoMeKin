@@ -1501,25 +1501,64 @@ fi
 ################################################################
 
 
+#function get_data_hl_output_mins {
+#if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ] ;then
+#   energy=$(get_energy_g09_$HLcalc.sh $i $noHLcalc)
+#   geom="$(get_geom_g09.sh $i)"
+#   if [ $name != "min0" ]; then
+#      zpe=$(get_ZPE_g09.sh $i)
+#      g=$(get_G_g09.sh $i)
+#      freq="$(get_freq_g09.sh $i)"
+# insert all minima except min0
+#      sqlite3 ${tsdirhl}/MINs/minhl.db "insert or ignore into minhl (natom,name,energy,zpe,g,geom,freq) values ($natom,'$name',$energy,$zpe,$g,'$geom','$freq');"
+#   fi
+#elif [ "$program_hl" = "qcore" ];then
+#   energy=$(awk 'NR==1{print $2}' $i)
+#   if [ -f ${tsdirhl}/IRC/${name}_opt.xyz ]; then
+#      xyz=${tsdirhl}/IRC/${name}_opt.xyz
+#   else
+#      xyz=${tsdirhl}/IRC/${name}.xyz
+#   fi
+#   geom="$(awk 'NR>2{print $0}' $xyz )"
+#   if [ $name != "min0" ]; then
+#      zpe=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $i)
+#      g=$(awk '/Gibbs free energy/{print $4}' $i)
+#      freq="$(awk '/Freq/{for(i=1;i<=1000;i++) {getline;if(NF>1) exit;print $1}}' $i)"
+#      sqlite3 ${tsdirhl}/MINs/minhl.db "insert or ignore into minhl (natom,name,energy,zpe,g,geom,freq) values ($natom,'$name',$energy,$zpe,$g,'$geom','$freq');"
+#   fi
+#fi
+#}
+
+########################################################
+###############New_function get_data_hl_output_mins#####
+########################################################
 function get_data_hl_output_mins {
-if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ] ;then
+if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
    energy=$(get_energy_g09_$HLcalc.sh $i $noHLcalc)
    geom="$(get_geom_g09.sh $i)"
    if [ $name != "min0" ]; then
       zpe=$(get_ZPE_g09.sh $i)
       g=$(get_G_g09.sh $i)
       freq="$(get_freq_g09.sh $i)"
-# insert all minima except min0
       sqlite3 ${tsdirhl}/MINs/minhl.db "insert or ignore into minhl (natom,name,energy,zpe,g,geom,freq) values ($natom,'$name',$energy,$zpe,$g,'$geom','$freq');"
    fi
-elif [ "$program_hl" = "qcore" ];then
+elif [ "$program_hl" = "orca" ]; then
+   energy=$(get_energy_orca_$HLcalc.sh $i $noHLcalc)
+   geom="$(get_geom_orca.sh $i)"
+   if [ $name != "min0" ]; then
+      zpe=$(get_ZPE_orca.sh $i)
+      g=$(get_G_orca.sh $i)
+      freq="$(get_freq_orca.sh $i)"
+      sqlite3 ${tsdirhl}/MINs/minhl.db "insert or ignore into minhl (natom,name,energy,zpe,g,geom,freq) values ($natom,'$name',$energy,$zpe,$g,'$geom','$freq');"
+   fi
+elif [ "$program_hl" = "qcore" ]; then
    energy=$(awk 'NR==1{print $2}' $i)
    if [ -f ${tsdirhl}/IRC/${name}_opt.xyz ]; then
       xyz=${tsdirhl}/IRC/${name}_opt.xyz
    else
       xyz=${tsdirhl}/IRC/${name}.xyz
    fi
-   geom="$(awk 'NR>2{print $0}' $xyz )"
+   geom="$(awk 'NR>2{print $0}' $xyz)"
    if [ $name != "min0" ]; then
       zpe=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $i)
       g=$(awk '/Gibbs free energy/{print $4}' $i)
@@ -1528,6 +1567,9 @@ elif [ "$program_hl" = "qcore" ];then
    fi
 fi
 }
+########################################################
+########################################################
+
 
 function set_up_irc_stuff {
 if [ ! -d "$tsdirhl/IRC" ]; then
@@ -1751,16 +1793,52 @@ fi
 ###################################################
 ###################################################
 
+#function check_freq_min {
+#if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+# See if it did not crashed and grab geometires
+#  ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3>0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if('$noHLcalc' == nt && fok==1) ok=1; print ok}' $i)
+#elif [ "$program_hl" = "qcore" ]; then
+#   ok=$(awk 'BEGIN{ok=0};/Freq/{getline;f1=$1;getline;f2=$1;if(f1>0 && f2>0) ok=1};END{print ok}' $i)
+#fi
+#Force min0 to be ok
+#if [ $ok -eq 0 ] && [ $name = "min0" ]; then ok=1 ; fi
+#}
+
+###################################################
+###########Nueva_check_freq_min_funct##############
+###################################################
 function check_freq_min {
 if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
-# See if it did not crashed and grab geometires
-  ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3>0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if('$noHLcalc' == nt && fok==1) ok=1; print ok}' $i)
+   ok=$(awk 'BEGIN{fok=0;ok=0;nt=0};/Frequencies/{++nfreq;if($3>0 && $4>0 && nfreq==1) fok=1};/Normal termi/{++nt};END{if('$noHLcalc' == nt && fok==1) ok=1; print ok}' $i)
+elif [ "$program_hl" = "orca" ]; then
+   ok=$(awk 'BEGIN{fok=0;ok=0;nt=0}
+   /ORCA TERMINATED NORMALLY/{++nt}
+   /ERROR !!!/{nt=0}
+   /VIBRATIONAL FREQUENCIES/{
+      getline; getline; getline; getline
+      first=0; second=0; fok=0
+      while(1){
+         getline
+         if($0 !~ /cm\*\*-1/) break
+         freq=$2
+         val=freq; if(val<0) val=-val
+         if(val<1) continue
+         if(first==0){first=freq; continue}
+         if(second==0){second=freq}
+         break
+      }
+      # For a minimum both first and second freq must be positive
+      if(first>0 && second>0) fok=1
+   }
+   END{if(nt==1 && fok==1) ok=1; print ok}' $i)
 elif [ "$program_hl" = "qcore" ]; then
    ok=$(awk 'BEGIN{ok=0};/Freq/{getline;f1=$1;getline;f2=$1;if(f1>0 && f2>0) ok=1};END{print ok}' $i)
 fi
 #Force min0 to be ok
 if [ $ok -eq 0 ] && [ $name = "min0" ]; then ok=1 ; fi
 }
+###################################################
+###################################################
 
 #function check_min {
 #if [ -f $tsdirhl/IRC/minf_$i.log ] && [ -f $tsdirhl/IRC/minr_$i.log ]; then

@@ -101,8 +101,6 @@ do
   name=$(basename $i .rxyz)
   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
      geom="$(get_geom_g09.sh ${tsdirhl}/IRC/${name}.log)"
-  elif [ "$program_hl" = "orca" ]; then
-     geom="$(get_geom_orca.sh ${tsdirhl}/IRC/${name}.log)"
   elif [ "$program_hl" = "qcore" ]; then
      if [ -f ${tsdirhl}/IRC/${name}_opt.xyz ]; then
         xyz=${tsdirhl}/IRC/${name}_opt.xyz
