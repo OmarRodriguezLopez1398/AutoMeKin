@@ -77,6 +77,21 @@ do
          else
             charge=0
          fi
+      elif [ "$program_hl" = "orca" ]; then
+         if [ $charge_calc -eq 1 ]; then
+            # Extract Mulliken charges from ORCA output for each fragment atom
+            charge=$(awk '{if(NR == FNR) {n[NR]=$1;++naf}}
+            /MULLIKEN ATOMIC CHARGES/{q=0;getline;getline
+            for(i=1;i<='$natom';i++){getline; for(j=1;j<=naf;j++){if(i-1==n[j]-1) q+=$NF} }  }
+            END{printf "%.0f\n",q}'  tmp_Frag$j ${logdir}/${name0}.log | sed 's/-0/0/')
+            if (( $(echo "sqrt(($charge)^2) > sqrt(($charge_t)^2)" |bc -l) )) && [ $j -eq 1 ]; then
+               echo Setting charge_i = total charge
+               charge_calc=0
+               charge=$charge_t
+            fi
+         else
+            charge=0
+         fi
       elif [ "$program_hl" = "qcore" ]; then
          charge=$(awk '{if(NR == FNR) {n[NR]=$1;++naf}}
          /Charges/{q=0
@@ -100,6 +115,22 @@ do
             diff=net[2]-net[3];noue=int(sqrt(diff*diff)+0.5);print noue+1
             }
           }' tmp_Frag$j ${logdir}/${name0}.log )
+      elif [ "$program_hl" = "orca" ]; then
+         # Extract spin populations from Mulliken analysis in ORCA
+         # If no unpaired electrons found, use noue+1 as default
+         mult=$(awk '{if(NR == FNR) {n[NR]=$1;++naf}}
+         /MULLIKEN ATOMIC SPIN POPULATIONS/{spin=0;getline;getline
+            for(i=1;i<='$natom';i++){getline
+               for(j=1;j<=naf;j++){if(i-1==n[j]-1) spin+=$NF}
+            }
+         }
+         END{
+            noue=int(sqrt(spin*spin)+0.5)
+            if(noue==0) noue='$noue'
+            print noue+1
+         }' tmp_Frag$j ${logdir}/${name0}.log )
+         # If mult is empty default to noue+1
+         if [ -z "$mult" ]; then mult=$(echo "$noue + 1" | bc) ; fi
       elif [ "$program_hl" = "qcore" ]; then
          mult=1
       fi
@@ -120,7 +151,11 @@ do
       ((m=m+1))
       calc=1
       if [ -f ${dir}/${nn}.log ]; then
-         if [ $(awk 'BEGIN{c=0};/Job /{c=1};/ZPE/{c=1};END{print c}' ${dir}/${nn}.log) -eq 1 ]; then calc=0 ; fi
+         if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+            if [ $(awk 'BEGIN{c=0};/Job /{c=1};/ZPE/{c=1};END{print c}' ${dir}/${nn}.log) -eq 1 ]; then calc=0 ; fi
+         elif [ "$program_hl" = "orca" ]; then
+            if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};/ERROR !!!/{c=0};END{print c}' ${dir}/${nn}.log) -eq 1 ]; then calc=0 ; fi
+         fi
       fi
 ##calc only if the frag is not repeated and/or the calc is not completed
       if [ $nl -eq 2 ] && [ $calc -eq 1 ]; then
@@ -128,13 +163,17 @@ do
          chkfile=$nnc
          if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
             calc=min
+         elif [ "$program_hl" = "orca" ]; then
+            calc=min
          elif [ "$program_hl" = "qcore" ]; then
             calc=prod
          fi
          level=hl
          geo="$(awk '{if(NF==4) print $0};END{print ""}' tmp_frag$j.xyz)"
-         if [ "$program_hl" = "g16" ]; then
+         if [ "$program_hl" = "g16" ] || [ "$program_hl" = "g09" ]; then
             g09_input
+         elif [ "$program_hl" = "orca" ]; then
+            orca_input
          else
             ${program_hl}_input
          fi
