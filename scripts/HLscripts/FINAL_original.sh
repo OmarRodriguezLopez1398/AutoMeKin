@@ -256,7 +256,6 @@ if [ -f ${tsdirhl}/working/conf_isomer_ts.out ];then
 fi
 
 ##Making molden files to visualize freqs of TSs
-##Making molden files to visualize freqs of TSs
 n=0
 for file in $(awk '{print $3}' ${tsdirhl}/TSs/SORTED/TSlist_sorted) 
 do
@@ -265,14 +264,11 @@ do
     number="$(printf %04d ${n%})"
     if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
        get_NM_g09_molden.sh ${tsdirhl}/${f}.log  $mdir/TS$number
-    elif [ "$program_hl" = "orca" ]; then
-       get_NM_orca_molden.sh ${tsdirhl}/${f}.log  $mdir/TS$number
     elif [ "$program_hl" = "qcore" ] ; then
        cp ${tsdirhl}/freq_${f}.molden  $mdir/TS${number}.molden
     fi
 done
 
-##Making molden files to visualize freqs of MINs 
 ##Making molden files to visualize freqs of MINs 
 n=0
 for file in $(sed 's/_min/ min/g;s/_0//' ${tsdirhl}/MINs/SORTED/MINlist_sorted | awk '{print $4}') 
@@ -283,16 +279,12 @@ do
     if [ "$f" == "min0" ]; then
        if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ] ; then
           get_NM_g09_molden.sh ${tsdirhl}/${f}.log  $mdir/MIN$number
-       elif [ "$program_hl" = "orca" ]; then
-          get_NM_orca_molden.sh ${tsdirhl}/${f}.log  $mdir/MIN$number
        elif [ "$program_hl" = "qcore" ] ; then
           cp ${tsdirhl}/freq_${f}.molden  $mdir/MIN${number}.molden
        fi 
     else
        if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
           get_NM_g09_molden.sh ${tsdirhl}/IRC/${f}.log  $mdir/MIN${number}
-       elif [ "$program_hl" = "orca" ]; then
-          get_NM_orca_molden.sh ${tsdirhl}/IRC/${f}.log  $mdir/MIN${number}
        elif [ "$program_hl" = "qcore" ] ; then
           cp ${tsdirhl}/IRC/freq_${f}.molden  $mdir/MIN${number}.molden
        fi

@@ -47,11 +47,9 @@ do
        fi
 ###Check if the fragment has been optimized
        if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
-         calc=$(awk 'BEGIN{e=1};/Normal termi/{e=0};/Error termi/{e=1};END{print e}' $file)
-      elif [ "$program_hl" = "orca" ];then
-         calc=$(awk 'BEGIN{e=1};/ORCA TERMINATED NORMALLY/{e=0};/ERROR !!!/{e=1};END{print e}' $file)
-      elif [ "$program_hl" = "qcore" ];then
-         calc=$(awk 'BEGIN{e=0};/Error/{e=1};END{print e}' $file)
+          calc=$(awk 'BEGIN{e=1};/Normal termi/{e=0};/Error termi/{e=1};END{print e}' $file)
+       elif [ "$program_hl" = "qcore" ];then
+          calc=$(awk 'BEGIN{e=0};/Error/{e=1};END{print e}' $file)
        fi
 ###If error pick the smallest label isomer without error
        if [ $calc -eq 1 ]; then
@@ -88,17 +86,6 @@ do
           get_ZPE_g09.sh $file >> zpe$ext 
           get_freq_g09.sh $file >> freq$ext
           sigma=$(awk 'BEGIN{IGNORECASE=1};/SYMMETRY NUMBER/{print $NF;exit}' $file | sed 's@\.@@' )
-       elif [ "$program_hl" = "orca" ]; then
-          etemp=$(get_energy_orca_$HLcalc.sh $file)
-          zpetemp=$(get_ZPE_orca.sh $file)
-          zpeok=$(get_ZPE_orca.sh $file | wc -l)
-          get_energy_orca_$HLcalc.sh $file >> ee$ext
-          get_geom_orca.sh $file > tmp_geom
-          com.sh > geom0$ext
-          awk '{print $1,$2+5*'${sign[$j]}',$3,$4}' geom0$ext >> geom$ext
-          get_ZPE_orca.sh $file >> zpe$ext
-          get_freq_orca.sh $file >> freq$ext
-          sigma=$(get_sigma_orca.sh $file)
        elif [ "$program_hl" = "qcore" ]; then
           etemp=$(awk 'NR==1{print $2}' $file)
           zpetemp=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $file)
@@ -124,8 +111,6 @@ do
        cat geom0$ext >> tmp_rxyz
        if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ];then
           get_freq_g09.sh $file | awk '{print sqrt($1*$1)}'  >> tmp_rxyz
-       elif [ "$program_hl" = "orca" ];then
-          get_freq_orca.sh $file | awk '{print sqrt($1*$1)}' >> tmp_rxyz
        elif [ "$program_hl" = "qcore" ];then
           zpetemp=$(awk '/ZPE/{printf "%12.2f",$2*627.51}' $file)
           if (( $(echo "$zpetemp > 0.1" |bc -l) )); then
@@ -153,14 +138,7 @@ do
           echo "0" >> gcorr$ext
           continue
        fi
-       if [ "$program_hl" = "orca" ]; then
-          mult="$(awk '/Multiplicity/{print $NF}' $file)"
-          if [ -z "$mult" ]; then
-             mult="$(awk '/Total Spin           S/{print $NF*2+1}' $file)"
-          fi
-       else
-          mult="$(awk '/Multiplicity/{print $NF}' $file)"
-       fi
+       mult="$(awk '/Multiplicity/{print $NF}' $file)"
        thermochem.py tmp_rxyz $temperature hl $mult | awk '/Thermal correction to Gib/{getline;getline;print $3}' >> gcorr$ext
     done
     e=$(awk '{e+=$1};END{printf "%14.9f\n",e}' ee$ext)
