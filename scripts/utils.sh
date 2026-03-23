@@ -1368,7 +1368,6 @@ end"
 %irc
   MaxIter $IRCpoints
   Direction $irc_direction
-  StepSize $step_irc
   PrintLevel 1
 $hess_line
 end"
