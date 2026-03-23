@@ -61,16 +61,16 @@ end=$(date +%s.%N)
 tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
 echo "   time: $tt s"
 
-echo "   Running IRC       " 
+echo "   Running IRC       "
 start=$(date +%s.%N)
-IRC.sh  >/dev/null 
+IRC.sh >/dev/null
 end=$(date +%s.%N)
 tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
 echo "   time: $tt s"
 
 echo "   Running min opt    "
 start=$(date +%s.%N)
-MIN.sh  >/dev/null 
+MIN.sh >/dev/null
 end=$(date +%s.%N)
 tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
 echo "   time: $tt s"
@@ -89,6 +89,7 @@ else
    tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
    echo "   time: $tt s"
 fi
+
 echo "   Running kinetics  "
 start=$(date +%s.%N)
 KMC.sh >/dev/null
@@ -96,20 +97,15 @@ end=$(date +%s.%N)
 tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
 echo "   time: $tt s"
 
-if [ "$program_hl" = "g09" ] && [ "$barrierless" = "yes" ]; then
-   echo "   Addding barrless procs"
-   start=$(date +%s.%N)
-   LOCATE_BARRIERLESS.sh >/dev/null
-   end=$(date +%s.%N)
-   tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
-   echo "   time: $tt s"
-elif [ "$program_hl" = "g16" ] && [ "$barrierless" = "yes" ]; then
-   echo "   Addding barrless procs"
-   start=$(date +%s.%N)
-   LOCATE_BARRIERLESS.sh >/dev/null
-   end=$(date +%s.%N)
-   tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
-   echo "   time: $tt s"
+if [ "$barrierless" = "yes" ]; then
+   if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ] || [ "$program_hl" = "orca" ]; then
+      echo "   Addding barrless procs"
+      start=$(date +%s.%N)
+      LOCATE_BARRIERLESS.sh >/dev/null
+      end=$(date +%s.%N)
+      tt=$( echo "$end - $start" | bc -l | awk '{printf "%4.0f",$1}')
+      echo "   time: $tt s"
+   fi
 fi
 
 echo "   Running frags opt "
@@ -121,8 +117,7 @@ echo "   time: $tt s"
 
 echo ""
 echo "Making final folder: FINAL_HL_${molecule}"
-FINAL.sh >/dev/null 
+FINAL.sh >/dev/null
 echo ""
 echo "END OF THE CALCULATIONS"
 echo ""
-
