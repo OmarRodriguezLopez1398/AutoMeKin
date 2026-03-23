@@ -79,19 +79,11 @@ do
       chkfilef=diss_${nbl}
       chkfiler="nada"
       geof="$geom"
-      geor=""
+      geor="" 
       echo "$geof" > tmp_geomf_$nbl
       echo "$geor" > tmp_geomr_$nbl
       i=$nbl
-      if [ "$program_hl" = "g16" ] || [ "$program_hl" = "g09" ]; then
-         g09_input
-      elif [ "$program_hl" = "orca" ]; then
-         level=hl
-         calc=min_irc
-         orca_input
-      else
-         ${program_hl}_input
-      fi
+      g09_input
    else
       echo Low-Level minimum: $imin does not correspond to any High-Level minimum 
    fi

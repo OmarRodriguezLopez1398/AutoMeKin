@@ -1369,7 +1369,6 @@ end"
   MaxIter $IRCpoints
   Direction $irc_direction
   PrintLevel 1
-$hess_line
 end"
       inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
