@@ -1363,30 +1363,68 @@ end"
          hess_line="  Calc_Hess true"
       fi
       cal="! $levelc_orca IRC TightSCF
+
 %maxcore $mem_mb
 %pal nprocs $nprocs end
+
 %irc
   MaxIter $IRCpoints
   Direction $irc_direction
   PrintLevel 1
+end
+
+%geom
+  Calc_Hess true
+  Recalc_Hess 10
 end"
       inp_hl="$(echo -e "$cal\n* xyz $charge $mult\n$geo\n*")"
 
    elif [ "$calc" = "min_irc" ]; then
-      cal="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+      # Para geometría forward
+      if [ $(nfrag.sh tmp_geomf_$i ${nfrag_th} $nA) -eq 1 ]; then
+         # Un solo fragmento → optimización
+         calf="! $levelc_orca Opt TightOpt TightSCF $freq_keyword CHELPG
 %maxcore $mem_mb
-%pal nprocs $nprocs end"
+%pal nprocs $nprocs end
+* xyz $charge $mult
+$geof
+*"
+   else
+         # Más de un fragmento → SP
+         calf="! $levelc_orca SP TightSCF
+%maxcore $mem_mb
+%pal nprocs $nprocs end
+* xyz $charge $mult
+$geof
+*"
+      fi
 
-      inp_hlminf="$(echo -e "$cal\n* xyz $charge $mult\n$geof\n*")"
-      inp_hlminr="$(echo -e "$cal\n* xyz $charge $mult\n$geor\n*")"
-
-      if [ -z $diss ]; then
-         echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
-         echo -e "insert or ignore into gaussian values (NULL,'minr_$i','$inp_hlminr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+      # Para geometría reverse
+      if [ $(nfrag.sh tmp_geomr_$i ${nfrag_th} $nA) -eq 1 ]; then
+         calr="! $levelc_orca Opt TightOpt TightSCF $freq_keyword
+%maxcore $mem_mb
+%pal nprocs $nprocs end
+* xyz $charge $mult
+$geor
+*"
       else
-         echo -e "insert or ignore into gaussian values (NULL,'min_diss_$i','$inp_hlminf');\n.quit" | sqlite3 ${tsdirhl}/IRC/DISS/inputs.db
+         calr="! $levelc_orca SP TightSCF
+%maxcore $mem_mb
+%pal nprocs $nprocs end
+* xyz $charge $mult
+$geor
+*"
+      fi
+
+      # Insertar en la DB igual que antes
+      if [ -z $diss ]; then
+         echo -e "insert or ignore into gaussian values (NULL,'minf_$i','$calf');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+         echo -e "insert or ignore into gaussian values (NULL,'minr_$i','$calr');\n.quit" | sqlite3 ${tsdirhl}/IRC/inputs.db
+      else
+         echo -e "insert or ignore into gaussian values (NULL,'min_diss_$i','$calf');\n.quit" | sqlite3 ${tsdirhl}/IRC/DISS/inputs.db
       fi
    fi
+       
 }
 #############END###############################
 ###############################################
@@ -1910,16 +1948,18 @@ if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
       get_geom_irc_g09.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
    fi
 elif [ "$program_hl" = "orca" ]; then
-   frm1=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircf_$i.log)
-   frm2=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircr_$i.log)
-   if [ "${frm1:-0}" -le 2 ] || [ "${frm2:-0}" -le 2 ]; then
+   #frm1=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircf_$i.log)
+   #frm2=$(awk '/IRC SUMMARY TABLE/{found=1} found && /[0-9]/{npt=$1} END{print npt+0}' $tsdirhl/IRC/ircr_$i.log)
+   #if [ "${frm1:-0}" -le 2 ] || [ "${frm2:-0}" -le 2 ]; then
       # IRC too short: displace along imaginary mode from TS
-      get_NM_orca.sh $tsdirhl/$i.log  1 > tmp_geomf_$i
-      get_NM_orca.sh $tsdirhl/$i.log -1 > tmp_geomr_$i
-   else
-      get_geom_irc_orca.sh $tsdirhl/IRC/ircf_$i.log > tmp_geomf_$i
-      get_geom_irc_orca.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
-   fi
+   #   get_NM_orca.sh $tsdirhl/$i.log  1 > tmp_geomf_$i
+   #   get_NM_orca.sh $tsdirhl/$i.log -1 > tmp_geomr_$i
+   #else
+      #get_geom_irc_orca.sh $tsdirhl/IRC/ircf_$i.log > tmp_geomf_$i
+      #get_geom_irc_orca.sh $tsdirhl/IRC/ircr_$i.log > tmp_geomr_$i
+   awk 'NR>2{print $0}' ${tsdirhl}/IRC/ircf_${i}_IRC_F.xyz > tmp_geomf_$i
+   awk 'NR>2{print $0}' ${tsdirhl}/IRC/ircr_${i}_IRC_B.xyz > tmp_geomr_$i
+   #fi
 elif [ "$program_hl" = "qcore" ]; then
    awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_forward_last.xyz > tmp_geomf_$i
    awk 'NR>2{print $0}' ${tsdirhl}/IRC/${i}_reverse_last.xyz > tmp_geomr_$i

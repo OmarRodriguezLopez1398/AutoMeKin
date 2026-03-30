@@ -79,10 +79,15 @@ do
          fi
       elif [ "$program_hl" = "orca" ]; then
          if [ $charge_calc -eq 1 ]; then
-            # Extract Mulliken charges from ORCA output for each fragment atom
             charge=$(awk '{if(NR == FNR) {n[NR]=$1;++naf}}
-            /MULLIKEN ATOMIC CHARGES/{q=0;getline;getline
-            for(i=1;i<='$natom';i++){getline; for(j=1;j<=naf;j++){if(i-1==n[j]-1) q+=$NF} }  }
+            /CHELPG Charges/{q=0;getline;getline
+            for(i=1;i<='$natom';i++){getline
+               for(j=1;j<=naf;j++){
+                  # ORCA atom index starts at 0
+                  atomidx=$(NF-2)+0
+                  if(atomidx==n[j]-1) q+=$NF
+               }
+            }  }
             END{printf "%.0f\n",q}'  tmp_Frag$j ${logdir}/${name0}.log | sed 's/-0/0/')
             if (( $(echo "sqrt(($charge)^2) > sqrt(($charge_t)^2)" |bc -l) )) && [ $j -eq 1 ]; then
                echo Setting charge_i = total charge
@@ -157,24 +162,20 @@ do
             if [ $(awk 'BEGIN{c=0};/ORCA TERMINATED NORMALLY/{c=1};/ERROR !!!/{c=0};END{print c}' ${dir}/${nn}.log) -eq 1 ]; then calc=0 ; fi
          fi
       fi
-##calc only if the frag is not repeated and/or the calc is not completed
+###calc only if the frag is not repeated and/or the calc is not completed
       if [ $nl -eq 2 ] && [ $calc -eq 1 ]; then
          nnc=${name}_q${chargen}_m${mult}_$ni
          chkfile=$nnc
-         if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
-            calc=min
-         elif [ "$program_hl" = "orca" ]; then
-            calc=min
-         elif [ "$program_hl" = "qcore" ]; then
-            calc=prod
-         fi
          level=hl
          geo="$(awk '{if(NF==4) print $0};END{print ""}' tmp_frag$j.xyz)"
-         if [ "$program_hl" = "g16" ] || [ "$program_hl" = "g09" ]; then
+         if [ "$program_hl" = "g09" ] || [ "$program_hl" = "g16" ]; then
+            calc=min
             g09_input
          elif [ "$program_hl" = "orca" ]; then
+            calc=min
             orca_input
-         else
+         elif [ "$program_hl" = "qcore" ]; then
+            calc=prod
             ${program_hl}_input
          fi
       else
